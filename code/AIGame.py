@@ -245,5 +245,6 @@ class catanAIGame():
                     break
                                    
 
-#Initialize new game and run
-newGame_AI = catanAIGame()
+if __name__ == "__main__":
+    # Initialize new game and run (interactive / pygame)
+    newGame_AI = catanAIGame()

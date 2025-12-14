@@ -34,4 +34,6 @@ class modelState():
 
 
 
-a = modelState()
+if __name__ == "__main__":
+    # Basic smoke test
+    a = modelState()

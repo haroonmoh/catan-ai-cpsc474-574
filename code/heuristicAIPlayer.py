@@ -114,6 +114,10 @@ class heuristicAIPlayer(player):
         '''
         #Get list of robber spots
         robberHexDict = board.get_robber_spots()
+        # Fallbacks in case there is no valid player to rob on any hex
+        # (e.g., no opponents adjacent to any candidate hex, or opponents have 0 resources).
+        hexToRob_index = next(iter(robberHexDict.keys())) if robberHexDict else 0
+        playerToRob_hex = None
         
         #Choose a hexTile with maximum adversary settlements
         maxHexScore = 0 #Keep only the best hex to rob

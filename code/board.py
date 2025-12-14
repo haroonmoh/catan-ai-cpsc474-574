@@ -9,6 +9,11 @@ from player import *
 #import networkx as nx
 #import matplotlib.pyplot as plt
 import pygame
+import os
+
+# used to suppress pygame window in headless mode
+if os.environ.get('SDL_VIDEODRIVER') == 'dummy' or os.environ.get('HEADLESS') == 'True':
+    os.environ['SDL_VIDEODRIVER'] = 'dummy'
 
 pygame.init()
 

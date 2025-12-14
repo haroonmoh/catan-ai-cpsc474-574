@@ -395,6 +395,7 @@ class catanGame():
                     
                 
 
-#Initialize new game and run
-newGame = catanGame()
-newGame.playCatan()
+if __name__ == "__main__":
+    # Initialize new game and run (interactive / pygame)
+    newGame = catanGame()
+    newGame.playCatan()
