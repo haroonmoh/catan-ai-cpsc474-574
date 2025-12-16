@@ -7,9 +7,10 @@ import sys
 import os
 import queue
 
-# Ensure headless mode for pygame
-os.environ['SDL_VIDEODRIVER'] = 'dummy'
-os.environ['HEADLESS'] = 'True'
+# Ensure headless mode for pygame ONLY if visualization is not requested
+if os.environ.get('CATAN_VISUALIZATION') != '1':
+    os.environ['SDL_VIDEODRIVER'] = 'dummy'
+    os.environ['HEADLESS'] = 'True'
 
 from board import catanBoard, Axial_Point, Resource
 from catanGame import catanGame
@@ -128,6 +129,19 @@ class CatanEnv(gym.Env):
         self.players = []
         # Safety: end episode after N env.step() calls even if agent never ends its turn
         self.max_steps_per_episode = 500
+
+        # Reward shaping (optional). The env is otherwise extremely sparse-reward
+        # (mostly 0 until win/loss), which can stall learning.
+        #
+        # Keep these small so terminal rewards (+100 / -50) remain dominant.
+        self.use_intermediate_rewards = True
+        self.reward_build_settlement = 1.0
+        self.reward_build_city = 2.0
+        self.reward_build_road = 0.2
+        self.reward_trade_bank = 0.1
+        # With action-masking, invalid actions should be unreachable; keep this at 0 by default.
+        # If you want to debug masking failures, set this negative and/or log `info["invalid_action"]`.
+        self.reward_invalid_action = 0.0
         
         # Initialize Game & Board
         self.game = None
@@ -150,6 +164,15 @@ class CatanEnv(gym.Env):
 
         # Mapping for edges
         self._map_edges()
+
+        # Turn Stage State Machine
+        # 0: Trade (Auto)
+        # 1: Settlement (1 max)
+        # 2: City (1 max)
+        # 3: Road 1
+        # 4: Road 2
+        # 5: End Turn
+        self.move_stage = 0
 
     def _map_edges(self):
         """Create a consistent index for all edges in the board graph."""
@@ -183,6 +206,77 @@ class CatanEnv(gym.Env):
         self.edge_to_idx = {e: i for i, e in enumerate(self.edge_list)}
         self.num_edges = len(self.edge_list)
         # print(f"Mapped {self.num_edges} unique edges.")
+
+    def _advance_stage(self):
+        """
+        Advance the move_stage until we reach a stage where the agent needs to make a decision
+        (i.e., a valid build action is possible) or we reach the end of the turn.
+        
+        Logic follows heuristicAIPlayer:
+        1. Trade (Stage 0) - Automatic
+        2. Build Settlement (Stage 1) - If possible
+        3. Build City (Stage 2) - If possible
+        4. Build Roads (Stage 3 & 4) - If possible
+        """
+        player = self.players[0]
+        
+        while self.move_stage < 5:
+            # Stage 0: Auto-Trade
+            if self.move_stage == 0:
+                # Execute heuristic trade logic automatically
+                player.trade()
+                self.move_stage += 1
+                continue
+                
+            # Stage 1: Build Settlement
+            if self.move_stage == 1:
+                # Check if we have resources and legal spots
+                can_afford = (player.resources['BRICK'] >= 1 and player.resources['WOOD'] >= 1 and 
+                              player.resources['SHEEP'] >= 1 and player.resources['WHEAT'] >= 1)
+                can_place = False
+                if can_afford and player.settlementsLeft > 0:
+                    potentials = self.board.get_potential_settlements(player)
+                    if potentials:
+                        can_place = True
+                
+                if can_place:
+                    return # STOP here, let Agent choose action
+                else:
+                    self.move_stage += 1 # Skip to next stage
+                    continue
+
+            # Stage 2: Build City
+            if self.move_stage == 2:
+                can_afford = (player.resources['WHEAT'] >= 2 and player.resources['ORE'] >= 3)
+                can_place = False
+                if can_afford and player.citiesLeft > 0:
+                    potentials = self.board.get_potential_cities(player)
+                    if potentials:
+                        can_place = True
+                
+                if can_place:
+                    return # STOP here, let Agent choose action
+                else:
+                    self.move_stage += 1
+                    continue
+
+            # Stage 3 & 4: Build Road
+            if self.move_stage in [3, 4]:
+                can_afford = (player.resources['BRICK'] >= 1 and player.resources['WOOD'] >= 1)
+                can_place = False
+                if can_afford and player.roadsLeft > 0:
+                    potentials = self.board.get_potential_roads(player)
+                    if potentials:
+                        can_place = True
+                
+                if can_place:
+                    return # STOP here
+                else:
+                    self.move_stage += 1
+                    continue
+        
+        # If we reach here, self.move_stage is 5 (End Turn)
+        return
 
     def reset(self):
         with SuppressOutput():
@@ -240,6 +334,10 @@ class CatanEnv(gym.Env):
             self.turn_count = 0
             self.step_count = 0
             
+            # Prepare first turn state
+            self.move_stage = 0
+            self._advance_stage()
+
             return self._get_obs()
 
     def step(self, action):
@@ -260,58 +358,80 @@ class CatanEnv(gym.Env):
             action_type, action_params = self._decode_action(action)
             
             # 2. Check Validity & Execute
+            # Enforce Turn Order via move_stage
             valid = False
-            if action_type == 'END_TURN':
-                valid = True # Always valid to end turn?
-                # End turn logic handled below
-                
-            elif action_type == 'BUILD_SETTLEMENT':
-                v_idx = action_params
-                if self._is_valid_settlement(player, v_idx):
-                    v_pixel = self.board.vertex_index_to_pixel_dict[v_idx]
-                    player.build_settlement(v_pixel, self.board)
-                    valid = True
-                    reward += 5 # Reward for building
             
-            elif action_type == 'BUILD_CITY':
-                v_idx = action_params
-                if self._is_valid_city(player, v_idx):
-                    v_pixel = self.board.vertex_index_to_pixel_dict[v_idx]
-                    player.build_city(v_pixel, self.board)
+            # Stage 5: End Turn (Only valid action is 0)
+            if self.move_stage == 5:
+                if action_type == 'END_TURN':
                     valid = True
-                    reward += 10 # Reward for city
-                    
-            elif action_type == 'BUILD_ROAD':
-                edge_idx = action_params
-                if edge_idx < len(self.edge_list):
-                    v1_idx, v2_idx = self.edge_list[edge_idx]
-                    if self._is_valid_road(player, v1_idx, v2_idx):
-                        v1_p = self.board.vertex_index_to_pixel_dict[v1_idx]
-                        v2_p = self.board.vertex_index_to_pixel_dict[v2_idx]
-                        player.build_road(v1_p, v2_p, self.board)
+                    # Logic handled below
+                else:
+                    # Invalid attempt to build/trade when turn is effectively over
+                    valid = False
+            
+            # Stage 1: Settlement
+            elif self.move_stage == 1:
+                if action_type == 'BUILD_SETTLEMENT':
+                    v_idx = action_params
+                    if self._is_valid_settlement(player, v_idx):
+                        v_pixel = self.board.vertex_index_to_pixel_dict[v_idx]
+                        player.build_settlement(v_pixel, self.board)
                         valid = True
-                        reward += 2
-                        
-            elif action_type == 'TRADE_BANK':
-                give_res, get_res = action_params
-                if player.resources[give_res] >= 4:
-                    player.resources[give_res] -= 4
-                    player.resources[get_res] += 1
-                    valid = True
+                        if self.use_intermediate_rewards:
+                            reward += self.reward_build_settlement
+                        # Move to next stage after successful build
+                        self.move_stage += 1
+            
+            # Stage 2: City
+            elif self.move_stage == 2:
+                if action_type == 'BUILD_CITY':
+                    v_idx = action_params
+                    if self._is_valid_city(player, v_idx):
+                        v_pixel = self.board.vertex_index_to_pixel_dict[v_idx]
+                        player.build_city(v_pixel, self.board)
+                        valid = True
+                        if self.use_intermediate_rewards:
+                            reward += self.reward_build_city
+                        self.move_stage += 1
+                    
+            # Stage 3/4: Road
+            elif self.move_stage in [3, 4]:
+                if action_type == 'BUILD_ROAD':
+                    edge_idx = action_params
+                    if edge_idx < len(self.edge_list):
+                        v1_idx, v2_idx = self.edge_list[edge_idx]
+                        if self._is_valid_road(player, v1_idx, v2_idx):
+                            v1_p = self.board.vertex_index_to_pixel_dict[v1_idx]
+                            v2_p = self.board.vertex_index_to_pixel_dict[v2_idx]
+                            player.build_road(v1_p, v2_p, self.board)
+                            valid = True
+                            if self.use_intermediate_rewards:
+                                reward += self.reward_build_road
+                            self.move_stage += 1
+
+            # Ignore manual TRADE_BANK or out-of-order actions
             
             if not valid:
-                # With action-masking, the agent should never choose invalid actions.
-                # As a safe fallback (e.g., during debugging), treat invalid as a no-op.
-                # You can alternatively force END_TURN here.
-                pass
+                # With strict masking, this should rarely happen unless the model predicts a masked action.
+                info["invalid_action"] = True
+                if self.use_intermediate_rewards:
+                    reward += self.reward_invalid_action
             
+            # Advance to next valid decision point
+            self._advance_stage()
+
             # 3. Handle Turn Mechanics
-            # If action was END_TURN, process opponent
-            if action_type == 'END_TURN':
+            # If we reached Stage 5 and action was END_TURN, process opponent
+            if valid and action_type == 'END_TURN':
                 self._play_opponent_turn()
                 self.turn_count += 1
                 # Roll dice for next turn (for RL agent)
                 self._roll_dice_and_distribute()
+                
+                # Reset for next turn
+                self.move_stage = 0
+                self._advance_stage()
                 
             # 4. Check Win Condition
             if player.victoryPoints >= 5:
@@ -319,7 +439,7 @@ class CatanEnv(gym.Env):
                 reward += 100
             elif self.players[1].victoryPoints >= 5:
                 done = True
-                reward -= 100
+                reward += 0 # No reward for losing
                 
             if self.turn_count > 200: # Max turns (only increments on END_TURN)
                 done = True
@@ -338,37 +458,38 @@ class CatanEnv(gym.Env):
         n = self.action_space.n
         mask = np.zeros(n, dtype=bool)
 
-        # Always allow END_TURN
-        mask[0] = True
+        # Always allow END_TURN only if we are at the end stage
+        # mask[0] = True (REMOVED: Depends on stage)
 
         # Precompute legal sets once (much faster than calling per-action)
-        can_settle = (
-            player.resources['BRICK'] >= 1 and player.resources['WOOD'] >= 1 and
-            player.resources['SHEEP'] >= 1 and player.resources['WHEAT'] >= 1
-        )
-        can_city = (player.resources['WHEAT'] >= 2 and player.resources['ORE'] >= 3)
-        can_road = (player.resources['BRICK'] >= 1 and player.resources['WOOD'] >= 1)
+        # Note: can_settle checks resources, but we only care if we are in that stage
+        # The stage advancement logic guarantees we have resources if we are in the stage.
+        
+        # Stage 5: End Turn
+        if self.move_stage == 5:
+            mask[0] = True
+            return mask # Only allow end turn
 
-        potential_settlements = self.board.get_potential_settlements(player) if can_settle else {}
-        potential_cities = self.board.get_potential_cities(player) if can_city else {}
-        potential_roads = self.board.get_potential_roads(player) if can_road else {}
-
-        # Settlements: actions 1..54 map to vertex indices 0..53
-        if can_settle:
+        # Stage 1: Settlements
+        if self.move_stage == 1:
+            potential_settlements = self.board.get_potential_settlements(player)
             for v_idx, v_pixel in self.board.vertex_index_to_pixel_dict.items():
                 if v_idx < 54 and v_pixel in potential_settlements:
                     mask[1 + v_idx] = True
+            return mask
 
-        # Cities: actions 55..108 map to vertex indices 0..53
-        if can_city:
+        # Stage 2: Cities
+        if self.move_stage == 2:
+            potential_cities = self.board.get_potential_cities(player)
             for v_idx, v_pixel in self.board.vertex_index_to_pixel_dict.items():
                 if v_idx < 54 and v_pixel in potential_cities:
                     mask[55 + v_idx] = True
+            return mask
 
-        # Roads: actions 109..(109+num_edges-1)
-        if can_road:
+        # Stage 3/4: Roads
+        if self.move_stage in [3, 4]:
+            potential_roads = self.board.get_potential_roads(player)
             for edge_idx, (v1_idx, v2_idx) in enumerate(self.edge_list):
-                # Convert to pixels to match potential_roads keys
                 if v1_idx in self.board.vertex_index_to_pixel_dict and v2_idx in self.board.vertex_index_to_pixel_dict:
                     v1_p = self.board.vertex_index_to_pixel_dict[v1_idx]
                     v2_p = self.board.vertex_index_to_pixel_dict[v2_idx]
@@ -376,23 +497,11 @@ class CatanEnv(gym.Env):
                         a = 109 + edge_idx
                         if a < n:
                             mask[a] = True
+            return mask
 
-        # Bank trades: actions 181..200
-        # Only legal if player has >=4 of give resource
-        res_types = ['ORE', 'BRICK', 'WHEAT', 'WOOD', 'SHEEP']
-        for give_i, give_res in enumerate(res_types):
-            if player.resources[give_res] >= 4:
-                for get_res in res_types:
-                    if get_res == give_res:
-                        continue
-                    # Mirror the notebook's encoding: 5*4 = 20
-                    # idx: give_i * 4 + get_j where get_j skips give_i
-                    get_list = [r for r in res_types if r != give_res]
-                    get_j = get_list.index(get_res)
-                    action_idx = 181 + give_i * 4 + get_j
-                    if action_idx < n:
-                        mask[action_idx] = True
-
+        # Trades are automatic now, so mask remains all False (except maybe empty mask handling?)
+        # Ideally we shouldn't be querying action_mask if stage is 0, but _advance_stage skips 0.
+        
         return mask
 
     def _play_opponent_turn(self):
@@ -438,7 +547,7 @@ class CatanEnv(gym.Env):
         # Construct feature vector
         obs = []
         
-        # 1. Vertices (54 * 3)
+        # 1. Vertices (54 * 3 -> Owner, Type, IsPort)
         for i in range(54):
             if i in self.board.vertex_index_to_pixel_dict:
                 v = self.board.boardGraph[self.board.vertex_index_to_pixel_dict[i]]
@@ -449,12 +558,45 @@ class CatanEnv(gym.Env):
                 type_ = 0
                 if v.state['Settlement']: type_ = 1
                 if v.state['City']: type_ = 2
+
+                is_port = 1 if v.port else 0
                 
-                obs.extend([owner, type_])
+                obs.extend([owner, type_, is_port])
             else:
-                obs.extend([0, 0])
+                obs.extend([0, 0, 0])
+
+        # 2. Edges (Roads)
+        # We need to see where roads are to build networks
+        for (v1_idx, v2_idx) in self.edge_list:
+            v1_pixel = self.board.vertex_index_to_pixel_dict[v1_idx]
+            v2_pixel = self.board.vertex_index_to_pixel_dict[v2_idx]
+            v1_obj = self.board.boardGraph[v1_pixel]
+            
+            road_owner = 0
+            # Find edge in v1's edgeList to check state
+            for idx, neighbor_pixel in enumerate(v1_obj.edgeList):
+                if neighbor_pixel == v2_pixel:
+                    # edgeState is [Player, isRoad]
+                    st = v1_obj.edgeState[idx]
+                    if st[1]: # isRoad is True
+                        road_owner = 1 if st[0] == self.players[0] else -1
+                    break
+            obs.append(road_owner)
+
+        # 3. Hex Tiles (Resource, Number, Robber)
+        # 19 hexes
+        res_map = {'DESERT': 0, 'ORE': 1, 'BRICK': 2, 'WHEAT': 3, 'WOOD': 4, 'SHEEP': 5}
+        for i in range(19):
+            if i in self.board.hexTileDict:
+                tile = self.board.hexTileDict[i]
+                r_type = res_map.get(tile.resource.type, 0)
+                r_num = tile.resource.num if tile.resource.num is not None else 0
+                robber = 1 if tile.robber else 0
+                obs.extend([r_type, r_num, robber])
+            else:
+                obs.extend([0, 0, 0])
                 
-        # 2. Player Resources
+        # 4. Player Resources
         for p in self.players:
             for r in ['ORE', 'BRICK', 'WHEAT', 'WOOD', 'SHEEP']:
                 obs.append(p.resources[r])
