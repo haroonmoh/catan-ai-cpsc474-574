@@ -9,7 +9,7 @@ import queue
 import numpy as np
 import sys, pygame
 import matplotlib.pyplot as plt
-from QlearningPlayer import QLearningPlayer, QLearningRoadAgent
+from QLearningPlayer import QLearningPlayer, QLearningRoadAgent
  
 import csv
 
@@ -353,7 +353,7 @@ def TrainRoadAgent(road_builder_dict, name_dict, num_players, n=1000, eval_mode=
     # save the weights of the road builders
     for key in road_builder_dict.keys():
         "Saving weights to np file for loading"
-        road_builder_dict[key].save_weights(name_dict[key] + ".npy")
+        road_builder_dict[key].save_weights("weights/" + name_dict[key] + ".npy")
 
     
                           
@@ -374,7 +374,9 @@ if __name__ == "__main__":
         default=2000,
         help="Number of games to run"
     )
-
+    
+    parser.add_argument("--weights", type=str, default="weights/QLearner.npy")
+    
     args = parser.parse_args()
 
     # Initialize agent
@@ -385,7 +387,7 @@ if __name__ == "__main__":
 
     # Optional: load pretrained weights in eval mode
     if args.eval:
-        road_builder.load_weights("QLearner.npy")
+        road_builder.load_weights("weights/QLearner.npy")
 
     TrainRoadAgent(
         road_builder_dict,
