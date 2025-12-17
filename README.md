@@ -2,7 +2,13 @@
 
 This project implements AI agents for Settlers of Catan using Reinforcement Learning techniques. We compare a HeuristicAIPlayer (Greedy) vs. Q-Learning vs. DQN
 
+## Packages to install 
+
+Q-Learning: matplotlib, numpy, pygame
+DQN: tensorflow, tqdm, ? TODO
+
 ## Q-Learning
+The Q-Learning agent uses Q-learning with a linear approimator to choose where to place roads, while keeping everything else the same within HeuristicAIPlayer. The agent is also trained against the HeuristicAIPlayer, and is able to achieve 57.2% winrate (over 10,000 games) after training for 2,000 games. 
 
 
 ## Deep Q-Network (DQN)
