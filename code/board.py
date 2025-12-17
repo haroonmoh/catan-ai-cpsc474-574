@@ -234,6 +234,7 @@ class catanBoard(hexTile, Vertex):
         for existingRoad in player.buildGraph['ROADS']:
             for vertex_i in existingRoad: #Iterate over both vertices of this road
                 #Check if vertex isn't already in the potential settlements - to remove double checks
+
                 if(vertex_i not in colonisableVertices.keys()):
                     if(self.boardGraph[vertex_i].isColonised): #Check if this vertex is already colonised
                         break
@@ -312,6 +313,21 @@ class catanBoard(hexTile, Vertex):
             if(v == v_coord1):
                 self.boardGraph[v_coord2].edgeState[indx][0] = player
                 self.boardGraph[v_coord2].edgeState[indx][1] = True
+
+        #self.draw_road([v_coord1, v_coord2], player.color) #Draw the settlement
+    
+    def removeBoardGraph_road(self, v_coord1, v_coord2):
+        #Update edge from first vertex v1
+        for indx, v in enumerate(self.boardGraph[v_coord1].edgeList):
+            if(v == v_coord2):
+                self.boardGraph[v_coord1].edgeState[indx][0] = None
+                self.boardGraph[v_coord1].edgeState[indx][1] = False
+        
+        #Update edge from second vertex v2
+        for indx, v in enumerate(self.boardGraph[v_coord2].edgeList):
+            if(v == v_coord1):
+                self.boardGraph[v_coord2].edgeState[indx][0] = None
+                self.boardGraph[v_coord2].edgeState[indx][1] = False
 
         #self.draw_road([v_coord1, v_coord2], player.color) #Draw the settlement
 

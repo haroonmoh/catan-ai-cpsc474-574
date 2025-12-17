@@ -9,47 +9,79 @@ import queue
 import numpy as np
 import sys, pygame
 import matplotlib.pyplot as plt
+from QlearningPlayer import QLearningPlayer, QLearningRoadAgent
+ 
+import csv
 
+def log_weights_csv(weights: np.ndarray, path= "weights_history.csv"):
+    """
+    Append a single weight vector as one row in a CSV.
+    """
+    weights = np.asarray(weights).flatten()
+
+    file_exists = os.path.isfile(path)
+
+    with open(path, mode="a", newline="") as f:
+        writer = csv.writer(f)
+
+        # optional header (w0, w1, w2, ...)
+        if not file_exists:
+            header = [f"w{i}" for i in range(len(weights))]
+            writer.writerow(header)
+
+        writer.writerow(weights.tolist())
+        
 #Class to implement an only AI
 class catanAIGame():
     #Create new gameboard
-    def __init__(self):
-        print("Initializing Settlers of Catan with only AI Players...")
+    def __init__(self, road_builder_dict={}, name_dict={0: "Player1", 1: "Player2"}, num_players=2, headless=False, printless=False, eval_mode=False):
+        if not printless:
+            print("Initializing Settlers of Catan with only AI Players...")
         self.board = catanBoard()
-
+        self.headless = headless
+        self.printless = printless
+        self.eval_mode = eval_mode
         #Game State variables
         self.gameOver = False
-        self.maxPoints = 10
-        self.numPlayers = 0
+        self.maxPoints = 5
+        self.numPlayers = num_players
+        self.road_builder_dict = road_builder_dict
+        self.name_dict = name_dict
+
+        # self.numPlayers = 0
 
         #Dictionary to keep track of dice statistics
         self.diceStats = {2:0, 3:0, 4:0, 5:0, 6:0, 7:0, 8:0, 9:0, 10:0, 11:0, 12:0}
         self.diceStats_list = []
 
-        while(self.numPlayers not in [3,4]): #Only accept 3 and 4 player games
-            try:
-                self.numPlayers = int(input("Enter Number of Players (3 or 4):"))
-            except:
-                print("Please input a valid number")
-
-        print("Initializing game with {} players...".format(self.numPlayers))
-        print("Note that Player 1 goes first, Player 2 second and so forth.")
+        # while(self.numPlayers not in [2]): #only 2 player games allowed for now
+        #     try:
+        #         self.numPlayers = int(input("Enter Number of Players (2):"))
+        #     except:
+        #         print("Please input a valid number")
+        if not printless:
+            print("Initializing game with {} players...".format(self.numPlayers))
+            print("Note that Player 1 goes first, Player 2 second and so forth.")
         
         #Initialize blank player queue and initial set up of roads + settlements
         self.playerQueue = queue.Queue(self.numPlayers)
         self.gameSetup = True #Boolean to take care of setup phase
 
         #Initialize boardview object
-        self.boardView = catanGameView(self.board, self)
+        self.boardView = None
+        if not self.headless:
+            self.boardView = catanGameView(self.board, self)
 
         #Functiont to go through initial set up
         self.build_initial_settlements()
-        self.playCatan()
 
         #Plot diceStats histogram
-        plt.hist(self.diceStats_list, bins = 11)
-        plt.show()
-
+        if not self.headless:
+            winner = self.playCatan()
+            plt.hist(self.diceStats_list, bins = 11)
+            plt.show()
+        
+        
         return None
     
 
@@ -58,8 +90,18 @@ class catanAIGame():
         #Initialize new players with names and colors
         playerColors = ['black', 'darkslateblue', 'magenta4', 'orange1']
         for i in range(self.numPlayers):
-            playerNameInput = input("Enter AI Player {} name: ".format(i+1))
-            newPlayer = heuristicAIPlayer(playerNameInput, playerColors[i])
+            
+            # playerNameInput = input("Enter AI Player {} name: ".format(i+1))
+            playerNameInput = self.name_dict[i]
+            if i in self.road_builder_dict.keys(): # this is a Qlearning player
+                newPlayer = QLearningPlayer(playerNameInput, playerColors[i], self.road_builder_dict[i], eval_mode=self.eval_mode)
+                print(self.road_builder_dict)
+                if not self.printless:
+                    print("Player type", i, "Qlearning")
+            else:
+                newPlayer = heuristicAIPlayer(playerNameInput, playerColors[i])
+                if not self.printless:
+                    print("Player type", i, "Heuristic")
             newPlayer.updateAI()
             self.playerQueue.put(newPlayer)
 
@@ -68,20 +110,24 @@ class catanAIGame():
         #Build Settlements and roads of each player forwards
         for player_i in playerList: 
             player_i.initial_setup(self.board)
-            pygame.event.pump()
-            self.boardView.displayGameScreen()
-            pygame.time.delay(1000)
+            
+            if not self.headless:
+                pygame.event.pump()
+                self.boardView.displayGameScreen()
+                pygame.time.delay(1000)
 
 
         #Build Settlements and roads of each player reverse
         playerList.reverse()
         for player_i in playerList: 
             player_i.initial_setup(self.board)
-            pygame.event.pump()
-            self.boardView.displayGameScreen()
-            pygame.time.delay(1000)
-            
-            print("Player {} starts with {} resources".format(player_i.name, len(player_i.setupResources)))
+
+            if not self.headless:
+                pygame.event.pump()
+                self.boardView.displayGameScreen()
+                pygame.time.delay(1000)
+            if not self.printless:
+                print("Player {} starts with {} resources".format(player_i.name, len(player_i.setupResources)))
 
             #Initial resource generation
             #check each adjacent hex to latest settlement
@@ -89,9 +135,10 @@ class catanAIGame():
                 resourceGenerated = self.board.hexTileDict[adjacentHex].resource.type
                 if(resourceGenerated != 'DESERT'):
                     player_i.resources[resourceGenerated] += 1
-                    print("{} collects 1 {} from Settlement".format(player_i.name, resourceGenerated))
-        
-        pygame.time.delay(5000)
+                    if not self.printless:
+                        print("{} collects 1 {} from Settlement".format(player_i.name, resourceGenerated))
+        if not self.headless:
+            pygame.time.delay(5000)
         self.gameSetup = False
 
 
@@ -100,7 +147,8 @@ class catanAIGame():
         dice_1 = np.random.randint(1,7)
         dice_2 = np.random.randint(1,7)
         diceRoll = dice_1 + dice_2
-        print("Dice Roll = ", diceRoll, "{", dice_1, dice_2, "}")
+        if not self.printless:
+            print("Dice Roll = ", diceRoll, "{", dice_1, dice_2, "}")
 
         return diceRoll
 
@@ -119,7 +167,8 @@ class catanAIGame():
                         if(adjacentHex in hexResourcesRolled and self.board.hexTileDict[adjacentHex].robber == False): #This player gets a resource if hex is adjacent and no robber
                             resourceGenerated = self.board.hexTileDict[adjacentHex].resource.type
                             player_i.resources[resourceGenerated] += 1
-                            print("{} collects 1 {} from Settlement".format(player_i.name, resourceGenerated))
+                            if not self.printless:
+                                print("{} collects 1 {} from Settlement".format(player_i.name, resourceGenerated))
                 
                 #Check each City the player has
                 for cityCoord in player_i.buildGraph['CITIES']:
@@ -127,15 +176,19 @@ class catanAIGame():
                         if(adjacentHex in hexResourcesRolled and self.board.hexTileDict[adjacentHex].robber == False): #This player gets a resource if hex is adjacent and no robber
                             resourceGenerated = self.board.hexTileDict[adjacentHex].resource.type
                             player_i.resources[resourceGenerated] += 2
-                            print("{} collects 2 {} from City".format(player_i.name, resourceGenerated))
+                            if not self.printless:
+                                print("{} collects 2 {} from City".format(player_i.name, resourceGenerated))
 
-                print("Player:{}, Resources:{}, Points: {}".format(player_i.name, player_i.resources, player_i.victoryPoints))
+                if not self.printless:
+                    print("Player:{}, Resources:{}, Points: {}".format(player_i.name, player_i.resources, player_i.victoryPoints))
                 #print('Dev Cards:{}'.format(player_i.devCards))
                 #print("RoadsLeft:{}, SettlementsLeft:{}, CitiesLeft:{}".format(player_i.roadsLeft, player_i.settlementsLeft, player_i.citiesLeft))
-                print('MaxRoadLength:{}, Longest Road:{}\n'.format(player_i.maxRoadLength, player_i.longestRoadFlag))
+                if not self.printless:
+                    print('MaxRoadLength:{}, Longest Road:{}\n'.format(player_i.maxRoadLength, player_i.longestRoadFlag))
         
         else:
-            print("AI using heuristic robber...")
+            if not self.printless:
+                print("AI using heuristic robber...")
             currentPlayer.heuristic_move_robber(self.board)
 
 
@@ -159,7 +212,8 @@ class catanAIGame():
                 player_i.longestRoadFlag = True
                 player_i.victoryPoints += 2
 
-                print("Player {} takes Longest Road {}".format(player_i.name, prevPlayer))
+                if not self.printless:
+                    print("Player {} takes Longest Road {}".format(player_i.name, prevPlayer))
 
     #function to check if a player has the largest army - after playing latest knight
     def check_largest_army(self, player_i):
@@ -181,7 +235,8 @@ class catanAIGame():
                 player_i.largestArmyFlag = True
                 player_i.victoryPoints += 2
 
-                print("Player {} takes Largest Army {}".format(player_i.name, prevPlayer))
+                if not self.printless:
+                    print("Player {} takes Largest Army {}".format(player_i.name, prevPlayer))
 
 
 
@@ -193,8 +248,9 @@ class catanAIGame():
             #Loop for each player's turn -> iterate through the player queue
             for currPlayer in self.playerQueue.queue:
                 numTurns += 1
-                print("---------------------------------------------------------------------------")
-                print("Current Player:", currPlayer.name)
+                if not self.printless:
+                    print("---------------------------------------------------------------------------")
+                    print("Current Player:", currPlayer.name)
 
                 turnOver = False #boolean to keep track of turn
                 diceRolled = False  #Boolean for dice roll status
@@ -209,42 +265,137 @@ class catanAIGame():
                     #TO-DO: Add option of AI Player playing a dev card prior to dice roll
                     
                     #Roll Dice and update player resources and dice stats
-                    pygame.event.pump()
+                    if not self.headless:
+                        pygame.event.pump()
                     diceNum = self.rollDice()
                     diceRolled = True
                     self.update_playerResources(diceNum, currPlayer)
                     self.diceStats[diceNum] += 1
                     self.diceStats_list.append(diceNum)
 
-                    currPlayer.move(self.board) #AI Player makes all its moves
+                    if isinstance(currPlayer, QLearningPlayer):
+                        opp = next(q for q in self.playerQueue.queue if q is not currPlayer)
+                        currPlayer.move(opp, self.board)
+                    else:
+                        currPlayer.move(self.board) #AI Player makes all its moves
                     #Check if AI player gets longest road and update Victory points
                     self.check_longest_road(currPlayer)
-                    print("Player:{}, Resources:{}, Points: {}".format(currPlayer.name, currPlayer.resources, currPlayer.victoryPoints))
-                    
-                    self.boardView.displayGameScreen()#Update back to original gamescreen
-                    pygame.time.delay(300)
+                    if not self.printless:
+                        print("Player:{}, Resources:{}, Points: {}".format(currPlayer.name, currPlayer.resources, currPlayer.victoryPoints))
+                    if not self.headless:
+
+                        self.boardView.displayGameScreen()#Update back to original gamescreen
+                        pygame.time.delay(300)
                     turnOver = True
                     
                     #Check if game is over
                     if currPlayer.victoryPoints >= self.maxPoints:
                         self.gameOver = True
                         self.turnOver = True
-                        print("====================================================")
-                        print("PLAYER {} WINS IN {} TURNS!".format(currPlayer.name, int(numTurns/4)))
-                        print(self.diceStats)
-                        print("Exiting game in 10 seconds...")
-                        pygame.time.delay(10000)
-                        break
+                        if not self.printless:
+                            print("====================================================")
+                            print("PLAYER {} WINS IN {} TURNS!".format(currPlayer.name, int(numTurns/4)))
+                            print(self.diceStats)
+                        else:
+                            print("PLAYER {} WINS IN {} TURNS!".format(currPlayer.name, int(numTurns/4)))
+                        if not self.headless:
+                            print("Exiting game in 10 seconds...")
+                            pygame.time.delay(10000)
+                        
+                        # NEW, ADDING REWARD TO QLEARNING PLAYER AND UPDATING WEIGhtS
+                        for p in self.playerQueue.queue:
+                            if isinstance(p, QLearningPlayer):
+                                if p == currPlayer:
+                                    # print("UPDATING POSITIVE REWARD")
+                                    opp = next(q for q in self.playerQueue.queue if q is not p)
+                                    p.road_builder.update_reward(100)
+                                    p.road_builder.update_weights(0)
+                                    # p.road_builder.act(p, opp, self.board, [None], eval_mode=self.eval_mode)
+                                elif p != currPlayer:
+                                    # print("UPDATING NEGATIVE REWARD")
+                                    opp = next(q for q in self.playerQueue.queue if q is not p)
+                                    p.road_builder.update_reward(-100)
+                                    p.road_builder.update_weights(0)
+                                    # p.road_builder.act(p, opp, self.board, [None], eval_mode=self.eval_mode)
+                                
+                        # break
+                        return currPlayer
 
                 if(self.gameOver):
-                    startTime = pygame.time.get_ticks()
-                    runTime = 0
-                    while(runTime < 5000): #5 second delay prior to quitting
-                        runTime = pygame.time.get_ticks() - startTime
+                    if not self.headless:
+                        startTime = pygame.time.get_ticks()
+                        runTime = 0
+                        while(runTime < 5000): #5 second delay prior to quitting
+                            runTime = pygame.time.get_ticks() - startTime
 
                     break
-                                   
+    
+
+def TrainRoadAgent(road_builder_dict, name_dict, num_players, n=1000, eval_mode=False): 
+    
+    for key in road_builder_dict.keys():
+        log_weights_csv(road_builder_dict[key].weights)
+        
+    total_wins = 0
+    for iter in range(n):
+        
+        game = catanAIGame(road_builder_dict, name_dict, num_players, headless=True, printless=True,eval_mode=False)
+        winner = game.playCatan()
+        
+        if isinstance(winner, QLearningPlayer):
+            total_wins += 1
+        for key in road_builder_dict.keys():
+            log_weights_csv(road_builder_dict[key].weights)
+            print("WEIGHTS", road_builder_dict[key].weights)
+    
+    print("TOTAL WINS:", total_wins)
+    print("OUT OF:", n)
+    # save the weights of the road builders
+    for key in road_builder_dict.keys():
+        "Saving weights to np file for loading"
+        road_builder_dict[key].save_weights(name_dict[key] + ".npy")
+
+    
+                          
+import argparse
 
 if __name__ == "__main__":
-    # Initialize new game and run (interactive / pygame)
-    newGame_AI = catanAIGame()
+    parser = argparse.ArgumentParser(description="Train or evaluate Catan road agent")
+
+    parser.add_argument(
+        "--eval",
+        action="store_true",
+        help="Run in evaluation mode (no learning, no exploration)"
+    )
+
+    parser.add_argument(
+        "-n",
+        type=int,
+        default=2000,
+        help="Number of games to run"
+    )
+
+    args = parser.parse_args()
+
+    # Initialize agent
+    road_builder = QLearningRoadAgent()
+
+    road_builder_dict = {0: road_builder}
+    name_dict = {0: "QLearner", 1: "Heuristic"}
+
+    # Optional: load pretrained weights in eval mode
+    if args.eval:
+        road_builder.load_weights("QLearner.npy")
+
+    TrainRoadAgent(
+        road_builder_dict,
+        name_dict,
+        num_players=2,
+        n=args.n,
+        eval_mode=args.eval
+    )
+    
+    # from QlearningPlayerSimple import BaseResourceFeature
+    # resource = BaseResourceFeature()
+    
+    

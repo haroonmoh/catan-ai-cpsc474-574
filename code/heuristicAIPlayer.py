@@ -66,7 +66,7 @@ class heuristicAIPlayer(player):
 
     
     def move(self, board):
-        print("AI Player {} playing...".format(self.name))
+        # print("AI Player {} playing...".format(self.name))
         #Trade resources if there are excessive amounts of a particular resource
         self.trade()
         #Build a settlements, city and few roads

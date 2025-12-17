@@ -383,6 +383,9 @@ class catanGame():
                         print("====================================================")
                         print("PLAYER {} WINS!".format(currPlayer.name))
                         print("Exiting game in 10 seconds...")
+                        
+                        
+                        
                         break
 
                 if(self.gameOver):
