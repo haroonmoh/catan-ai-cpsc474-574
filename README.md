@@ -1,15 +1,31 @@
 # Catan AI
 
-This project implements AI agents for Settlers of Catan using Reinforcement Learning techniques. We compare a HeuristicAIPlayer (Greedy) vs. Q-Learning vs. DQN
+This project implements AI agents for Settlers of Catan using Reinforcement Learning techniques. We compare a HeuristicAIPlayer (Greedy) vs. Q-Learning vs. DQN          
+
+We pull from an [existing Catan-AI implementation](https://github.com/kvombatkere/Catan-AI) for the rules of our game, and implement our own agents on top. We use a shorter 2-player variant of Catan with 5 VPs to win. The rest of the rules are kept the same as in the original implementation.
 
 ## Packages to install 
 
-Q-Learning: matplotlib, numpy, pygame
-DQN: tensorflow, tqdm, ? TODO
+Q-Learning: matplotlib, numpy, pygame            
+DQN: tensorflow, tqdm, ? TODO** PUT REQUIREMENTS TXT INSTEAD
 
 ## Q-Learning
-The Q-Learning agent uses Q-learning with a linear approimator to choose where to place roads, while keeping everything else the same within HeuristicAIPlayer. The agent is also trained against the HeuristicAIPlayer, and is able to achieve 57.2% winrate (over 10,000 games) after training for 2,000 games. 
+The Q-Learning agent uses Q-learning with a linear approximator to choose where to place roads, while keeping everything else the same within HeuristicAIPlayer. The agent is also trained against the HeuristicAIPlayer, and is able to achieve 57.2% winrate (over 10,000 games) after training for 2,000 games. 
 
+### Features
+All features are indexed by both players' VP count (i.e. I have x VPs, opponent has y), each pair (x,y) gets a unique index. In other words, we only modify the corresponding index if we have the exact VP pair, otherwise it is 0. This results in a 9-dimensional feature for each. 
+1. SettlementOpportunityFeature: 1 if the proposed road creates a new opportunity to build a settlement which was previously not there. 
+2. BaseResourceFeature: A constant feature which is 1 if we are building a road. There is a separate index of this feature, which is 1 for the "None" action**.
+3. RoadBlockingFeature: 1 if the proposed road cuts off opponent's road path 
+4. LongestRoadFeature: 1 if the proposed road increases player's current longest road
+
+**Note: after experimentation, I found that having the agent learn to build roads if it has resources available was almost always worse than just forcing it to build roads (removing the "None" feature). Thus, the second component of Feature 2 (allowing the "None" action) ended up being obsolete. However, this still gave a good baseline for the "value" of the position, simply by indexing over VP pairs, and I initialized the weights for this feature with heuristic values accordingly. 
+
+### Rewards 
+The only reward that was given was if the agent won or lost after a given move. The idea was that, in the long run, values for positions would be baked into the  q(s,a) themselves for different VP pairs; providing additional reward for gaining VPs would be like "double counting" along with the gain in value when moving from (x,y) to (x+1,y). 
+
+### Discussion 
+It was a bit challenging to figure out how to set up the reward/features, as the setup was a bit unconventional; here, the agent only acts by building roads, yet everything else that happens in between "actions" determines the success of the road that was built. I initially did not do any indexing by VPs, which led to seemingly random weights during training; I suspect this is because the model has no way to understand its current "position" in the game (i.e. winning vs. losing), and weights are only updated by which road happened to be the last one built before the game result. 
 
 ## Deep Q-Network (DQN)
 
