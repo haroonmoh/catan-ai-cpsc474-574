@@ -88,11 +88,6 @@ class heuristicAIPlayer(player):
                 randomEdge = np.random.randint(0, len(possibleRoads.keys()))
                 self.build_road(list(possibleRoads.keys())[randomEdge][0], list(possibleRoads.keys())[randomEdge][1], board)
 
-        #Draw a Dev Card with 1/3 probability
-        devCardNum = np.random.randint(0, 3)
-        if(devCardNum == 0):
-            self.draw_devCard(board)
-        
         return
 
     #Wrapper function to control all trading
@@ -163,24 +158,9 @@ class heuristicAIPlayer(player):
         return
 
 
-    # def heuristic_play_dev_card(self, board):
-    #     '''Heuristic strategies to choose and play a dev card
-    #     args: board object
-    #     '''
-    #     #Check if player can play a devCard this turn
-    #     if self.devCardPlayedThisTurn != True:
-    #         #Get a list of all the unique dev cards this player can play
-    #         devCardsAvailable = []
-    #         for cardName, cardAmount in self.devCards.items():
-    #             if(cardName != 'VP' and cardAmount >= 1): #Exclude Victory points
-    #                 devCardsAvailable.append((cardName, cardAmount))
-
-    #         if(len(devCardsAvailable) >=1):
-                #If a hexTile is currently blocked, try and play a Knight
-
-                #If expansion needed, try road-builder
-
-                #If resources needed, try monopoly or year of plenty
+    #Overriding the play_devCard function to disable it for Heuristic AI
+    def play_devCard(self, game):
+        return
 
 
     def resources_needed_for_settlement(self):
