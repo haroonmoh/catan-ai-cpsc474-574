@@ -339,7 +339,7 @@ def TrainRoadAgent(road_builder_dict, name_dict, num_players, n=1000, eval_mode=
     total_wins = 0
     for iter in range(n):
         
-        game = catanAIGame(road_builder_dict, name_dict, num_players, headless=True, printless=True,eval_mode=False)
+        game = catanAIGame(road_builder_dict, name_dict, num_players, headless=True, printless=True,eval_mode=eval_mode)
         winner = game.playCatan()
         
         if isinstance(winner, QLearningPlayer):
@@ -352,8 +352,10 @@ def TrainRoadAgent(road_builder_dict, name_dict, num_players, n=1000, eval_mode=
     print("OUT OF:", n)
     # save the weights of the road builders
     for key in road_builder_dict.keys():
-        "Saving weights to np file for loading"
-        road_builder_dict[key].save_weights("weights/" + name_dict[key] + ".npy")
+        # "Saving weights to np file for loading"
+        if not eval_mode:
+            print("Saving weights to np file for loading")
+            road_builder_dict[key].save_weights("weights/" + name_dict[key] + ".npy")
 
     
                           
@@ -376,18 +378,20 @@ if __name__ == "__main__":
     )
     
     parser.add_argument("--weights", type=str, default="weights/QLearner.npy")
-    
+
     args = parser.parse_args()
 
     # Initialize agent
     road_builder = QLearningRoadAgent()
 
-    road_builder_dict = {0: road_builder}
-    name_dict = {0: "QLearner", 1: "Heuristic"}
+    
 
     # Optional: load pretrained weights in eval mode
     if args.eval:
-        road_builder.load_weights("weights/QLearner.npy")
+        road_builder.load_weights(args.weights)
+        
+    road_builder_dict = {0: road_builder}
+    name_dict = {0: "QLearner", 1: "Heuristic"}
 
     TrainRoadAgent(
         road_builder_dict,
