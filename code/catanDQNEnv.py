@@ -15,6 +15,7 @@ from board import catanBoard, Axial_Point, Resource
 from catanGame import catanGame
 from player import player
 from heuristicAIPlayer import heuristicAIPlayer
+from QlearningPlayer import QLearningPlayer, QLearningRoadAgent
 from hexLib import *
 
 # -----------------------------------------------------------------------------
@@ -122,7 +123,8 @@ class CatanEnv(gym.Env):
     - 181-200: Trade Bank (4:1)
     """
     
-    def __init__(self):
+    def __init__(self, opponent_type="Heuristic_AI"):
+        self.opponent_type = opponent_type
         self.num_players = 2
         self.seed_val = 42
         self.players = []
@@ -292,7 +294,19 @@ class CatanEnv(gym.Env):
             # Player 0: RL Agent
             # Player 1: Heuristic AI
             p1 = heuristicAIPlayer("RL_Agent", "blue")
-            p2 = heuristicAIPlayer("Heuristic_AI", "red") # Use heuristic for opponent
+            
+            if self.opponent_type == "QLearner":
+                road_builder = QLearningRoadAgent()
+                # Try loading weights
+                if os.path.exists("weights/QLearner.npy"):
+                     road_builder.load_weights("weights/QLearner.npy")
+                elif os.path.exists("QLearner.npy"):
+                     road_builder.load_weights("QLearner.npy")
+                
+                p2 = QLearningPlayer("QLearner", "red", road_builder, eval_mode=True)
+            else:
+                p2 = heuristicAIPlayer("Heuristic_AI", "red") # Use heuristic for opponent
+            
             p1.updateAI()
             p2.updateAI()
             
@@ -510,8 +524,12 @@ class CatanEnv(gym.Env):
         roll = self.game.rollDice()
         self.game.update_playerResources(roll, opponent)
         
-        # 2. Heuristic Move
-        opponent.move(self.board)
+        # 2. Opponent Move
+        # Some opponents (e.g., QLearningPlayer) expect (opp, board); others expect (board).
+        if isinstance(opponent, QLearningPlayer):
+            opponent.move(self.players[0], self.board)
+        else:
+            opponent.move(self.board)
         
         # 3. Check wins handled in step()
 

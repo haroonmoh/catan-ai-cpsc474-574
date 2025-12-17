@@ -279,7 +279,11 @@ class catanGame():
                         diceRolled = True
                         self.update_playerResources(diceNum, currPlayer)
 
-                        currPlayer.move(self.board) #AI Player makes all its moves
+                        if currPlayer.__class__.__name__ == "QLearningPlayer":
+                            opp = next(p for p in self.playerQueue.queue if p is not currPlayer)
+                            currPlayer.move(opp, self.board)
+                        else:
+                            currPlayer.move(self.board) #AI Player makes all its moves
                         #Check if AI player gets longest road/largest army and update Victory points
                         self.check_longest_road(currPlayer)
                         self.check_largest_army(currPlayer)

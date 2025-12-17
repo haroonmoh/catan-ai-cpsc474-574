@@ -54,8 +54,8 @@ class DQNAgent:
 # -----------------------------------------------------------------------------
 # 2. BENCHMARK LOGIC (Used AI to help me write this)
 # -----------------------------------------------------------------------------
-def run_benchmark(episodes=1000, weights_path=None):
-    env = CatanEnv()
+def run_benchmark(episodes=1000, weights_path=None, opponent_type="Heuristic_AI"):
+    env = CatanEnv(opponent_type=opponent_type)
     state_size = env.observation_space.shape[0]
     action_size = env.action_space.n
     agent = DQNAgent(state_size, action_size)
@@ -118,7 +118,7 @@ def run_benchmark(episodes=1000, weights_path=None):
     plt.plot(running_win_rates, label='Cumulative Win Rate')
     plt.axhline(y=wins/episodes, color='r', linestyle='--', label=f'Final Rate ({wins/episodes*100:.1f}%)')
     plt.ylim(0, 1.0)
-    plt.title(f'Agent Win Rate vs Heuristic AI ({episodes} Games)')
+    plt.title(f'Agent Win Rate vs {opponent_type} ({episodes} Games)')
     plt.xlabel('Games Played')
     plt.ylabel('Win Rate')
     plt.legend()
@@ -134,6 +134,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Benchmark Catan RL Agent")
     parser.add_argument("-n", "--episodes", type=int, default=1000, help="Number of episodes to run")
     parser.add_argument("--weights", type=str, default="weights/catan-dqn-6360.weights.h5", help="Path to weights file")
+    parser.add_argument("--opponent", type=str, default="Heuristic_AI", help="Opponent type: 'Heuristic_AI' or 'QLearner'")
     
     args = parser.parse_args()
 
@@ -148,5 +149,5 @@ if __name__ == "__main__":
         elif os.path.exists(os.path.basename(w_path)):
              w_path = os.path.basename(w_path)
              
-    run_benchmark(episodes=args.episodes, weights_path=w_path)
+    run_benchmark(episodes=args.episodes, weights_path=w_path, opponent_type=args.opponent)
 
