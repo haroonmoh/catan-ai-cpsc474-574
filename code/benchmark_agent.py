@@ -124,15 +124,15 @@ def run_benchmark(episodes=1000, weights_path=None):
     plt.legend()
     plt.grid(True)
     
-    output_file = 'benchmark_results_6390_episodes.png'
+    output_file = 'benchmark_results_6360_episodes.png'
     plt.savefig(output_file)
     print(f"Graph saved to {output_file}")
 
 if __name__ == "__main__":
     # Use absolute path if possible, or fallback to relative
-    w_path = "/Users/haroonmohamedali/cpsc474/catan/Catan-AI/weights/catan-dqn-6390.weights.h5"
+    w_path = "/Users/haroonmohamedali/cpsc474/catan/Catan-AI/weights/catan-dqn-6360.weights.h5"
     if not os.path.exists(w_path):
-        w_path = "weights/catan-dqn-6390.weights.h5"
+        w_path = "weights/catan-dqn-6360.weights.h5"
         
     run_benchmark(episodes=1000, weights_path=w_path)
 

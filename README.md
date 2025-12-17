@@ -14,7 +14,7 @@ The DQN agent uses a neural network to approximate the Q-value function, allowin
 We benchmarked the DQN agent's performance at various training milestones. The following graphs show the win rate and average victory points over time.
 
 #### Early Training (660 - 1800 Episodes)
-In the early stages, the agent is still exploring the state space.
+In the early stages, the agent quickly gets up to around 55%. 
 
 ![660 Episodes](results/benchmark_results_660_episodes.png)
 *Results after 660 episodes*
@@ -26,7 +26,7 @@ In the early stages, the agent is still exploring the state space.
 *Results after 1800 episodes*
 
 #### Mid-Training (2500 - 2940 Episodes)
-As training progresses, we can observe changes in the agent's performance and strategy stability.
+As training progresses, we can observe changes in the agent's performance and strategy stability. It gets up to 60% but hovers around 58%
 
 ![2500 Episodes](results/benchmark_results_2500_episodes.png)
 *Results after 2500 episodes*
@@ -38,7 +38,7 @@ As training progresses, we can observe changes in the agent's performance and st
 *Results after 2940 episodes*
 
 #### Extended Training (4000 - 5310 Episodes)
-With more episodes, the agent's policy should converge.
+Finally, it gets to around 60% and stays there. Sometimes it dips to around 58%, but most times will get 60%
 
 ![4000 Episodes](results/benchmark_results_4000_episodes.png)
 *Results after 4000 episodes*
@@ -46,14 +46,17 @@ With more episodes, the agent's policy should converge.
 ![5310 Episodes](results/benchmark_results_5310_episodes.png)
 *Results after 5310 episodes*
 
+![6360 Episodes](results/benchmark_results_6360_episodes.png)
+*Results after 6360 episodes*
+
 ### Gameplay Demos
 
 Watch the agent in action:
 
-- [Winning Game Playthrough 1](results/Win1.mov)
-- [Winning Game Playthrough 2](results/Win2.mov)
+- [Winning Game Playthrough 1](https://youtu.be/Afzk3vF0z_4)
+- [Winning Game Playthrough 2](https://youtu.be/7l6M2oHQ1Y8)
 
 ### Discussion
-The progression from 660 to 5310 episodes illustrates the learning curve of the DQN agent. By comparing the graphs:
-1.  **Win Rate Stability**: Notice how the win rate stabilizes or improves as the number of episodes increases.
-2.  **Average Points**: The average victory points per game tend to increase, indicating the agent is learning to score more effectively even if it doesn't always win.
+Some issues I faced were hyperparameter tuning for what n and m should be, what gamma should be, and what the rewards should look like. I tried an n and m of 2 and 10, 3 and 50, 4 and 15, but ultimately 5 and 30 tended to perform the best. I also struggled with what epsilon decay should be. I had to move it up to 0.999 from 0.99 and 0.996 because the model would set on a pretty bad strategy and hover around 54% performance. For gamma and rewards, I initially had it as 0.95 and had rewards for building settlements, roads, and cities. But because of this it would just build roads and take the immediate reward. This led to it hovering around 57-58% for performance.
+
+It was interesting to play around with DQN
