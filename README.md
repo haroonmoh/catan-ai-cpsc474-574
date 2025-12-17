@@ -4,6 +4,15 @@ This project implements AI agents for Settlers of Catan using Reinforcement Lear
 
 We pull from an [existing Catan-AI implementation](https://github.com/kvombatkere/Catan-AI) for the rules of our game, and implement our own agents on top. We use a shorter 2-player variant of Catan with 5 VPs to win. The rest of the rules are kept the same as in the original implementation.
 
+## Summary 
+This project implements AI agents for Settlers of Catan using Reinforcement Learning techniques. We compare a HeuristicAIPlayer (Greedy) vs. Q-Learning vs. DQN    
+
+Installation: 
+
+Results: 
+
+
+
 ## Packages to install 
 
 Q-Learning: matplotlib, numpy, pygame            
