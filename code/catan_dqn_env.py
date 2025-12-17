@@ -131,14 +131,13 @@ class CatanEnv(gym.Env):
         self.max_steps_per_episode = 500
 
         # Reward shaping (optional). The env is otherwise extremely sparse-reward
-        # (mostly 0 until win/loss), which can stall learning.
-        #
-        # Keep these small so terminal rewards (+100 / -50) remain dominant.
-        self.use_intermediate_rewards = True
-        self.reward_build_settlement = 1.0
-        self.reward_build_city = 2.0
-        self.reward_build_road = 0.2
-        self.reward_trade_bank = 0.1
+        # (mostly 0 until win/loss).
+        # User requested removing intermediate rewards altogether.
+        self.use_intermediate_rewards = False
+        self.reward_build_settlement = 0.0
+        self.reward_build_city = 0.0
+        self.reward_build_road = 0.0
+        self.reward_trade_bank = 0.0
         # With action-masking, invalid actions should be unreachable; keep this at 0 by default.
         # If you want to debug masking failures, set this negative and/or log `info["invalid_action"]`.
         self.reward_invalid_action = 0.0
@@ -599,8 +598,10 @@ class CatanEnv(gym.Env):
         # 4. Player Resources
         for p in self.players:
             for r in ['ORE', 'BRICK', 'WHEAT', 'WOOD', 'SHEEP']:
-                obs.append(p.resources[r])
-            obs.append(p.victoryPoints)
+                # Normalize resources (approx max 10-15)
+                obs.append(min(p.resources[r] / 10.0, 1.0))
+            # Normalize VP (max 10)
+            obs.append(p.victoryPoints / 10.0)
             
         # Pad to fixed size if needed
         full_obs = np.array(obs, dtype=np.float32)

@@ -26,9 +26,12 @@ class DQNAgent:
     def _build_model(self):
         model = Sequential()
         model.add(Input(shape=(self.state_size,)))
+        model.add(Dense(512, activation='relu'))
         model.add(Dense(256, activation='relu'))
         model.add(Dense(128, activation='relu'))
-        model.add(Dense(64, activation='relu'))
+        # model.add(Dense(256, activation='relu'))
+        # model.add(Dense(128, activation='relu'))
+        # model.add(Dense(64, activation='relu'))
         model.add(Dense(self.action_size, activation='linear'))
         model.compile(loss='mse', optimizer=Adam(learning_rate=self.learning_rate))
         return model
@@ -39,10 +42,7 @@ class DQNAgent:
         if valid_actions.size == 0:
             return 0
 
-        # Predict Q-values
         q = self.model.predict(state.reshape(1, -1), verbose=0)[0]
-        
-        # Mask invalid actions
         mask_value = np.finfo(q.dtype).min
         q[~action_mask] = mask_value
         
@@ -124,15 +124,15 @@ def run_benchmark(episodes=1000, weights_path=None):
     plt.legend()
     plt.grid(True)
     
-    output_file = 'benchmark_results_2500_episodes.png'
+    output_file = 'benchmark_results_6390_episodes.png'
     plt.savefig(output_file)
     print(f"Graph saved to {output_file}")
 
 if __name__ == "__main__":
     # Use absolute path if possible, or fallback to relative
-    w_path = "/Users/haroonmohamedali/cpsc474/catan/Catan-AI/weights/catan-dqn-2500.weights.h5"
+    w_path = "/Users/haroonmohamedali/cpsc474/catan/Catan-AI/weights/catan-dqn-6390.weights.h5"
     if not os.path.exists(w_path):
-        w_path = "weights/catan-dqn-2500.weights.h5"
+        w_path = "weights/catan-dqn-6390.weights.h5"
         
     run_benchmark(episodes=1000, weights_path=w_path)
 
