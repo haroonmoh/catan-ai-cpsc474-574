@@ -4,22 +4,41 @@ This project implements AI agents for Settlers of Catan using Reinforcement Lear
 
 We pull from an [existing Catan-AI implementation](https://github.com/kvombatkere/Catan-AI) for the rules of our game, and implement our own agents on top. We use a shorter 2-player variant of Catan with 5 VPs to win. The rest of the rules are kept the same as in the original implementation.
 
-## Summary 
+## Summary (in eval)
 This project implements AI agents for Settlers of Catan using Reinforcement Learning techniques. We compare a HeuristicAIPlayer (Greedy) vs. Q-Learning vs. DQN    
 
-Installation: 
+Installation: pip install requirements.txt
+
+Methods: 
+- HeuristicAIPlayer: greedy algorithm which always builds settlements, cities, and roads when it can, randomly
+- QLearner: Modification to HeuristicAIPlayer, using QLearning to decide road placements. Uses various linear approximators to estimate the value of a position/move
+- DQN: Uses a neural network to approximate the Q-value function, mapping states/actions into vector formats
+
+QLearner and DQN are both trained against HeuristicAIPlayer. 
 
 Results: 
+- QLearner vs. HeuristicAIPlayer, 52.72% (10,000 games)
+- DQN vs. HeuristicAIPlayer, ~60% (1,000 games)
+- DQN vs. QLearner, 79.3% (1,000 games)
 
+Commands:
+- test-all
+- test-q-learning
+- test-rl-agent
+- test-rl-agent-long 
 
+A full description of methods and results can be found at https://github.com/haroonmoh/catan-ai-cpsc474-574. 
 
-## Packages to install 
-
-Q-Learning: matplotlib, numpy, pygame            
-DQN: tensorflow, tqdm, ? TODO** PUT REQUIREMENTS TXT INSTEAD
 
 ## Q-Learning
-The Q-Learning agent uses Q-learning with a linear approximator to choose where to place roads, while keeping everything else the same within HeuristicAIPlayer. The agent is also trained against the HeuristicAIPlayer, and is able to achieve 57.2% winrate (over 10,000 games) after training for 2,000 games. 
+The Q-Learning agent uses Q-learning with a linear approximator to choose where to place roads, while keeping everything else the same within HeuristicAIPlayer. The agent is also trained against the HeuristicAIPlayer, and is able to achieve 52.72% winrate (over 10,000 games) after training for 2,000 games. Similar to what we saw in the Q-learning for NFL pset, this is dependent on the strategy it converges to after training, and can also range from being losing (~45%) to more winning (~57%). 
+
+### Run
+To train:      
+```python code/AIGame.py -n 2000  ```
+To test:
+```python code/AIGame.py -n 10000 --eval --weights weights/QLearner.npy ```
+
 
 ### Features
 All features are indexed by both players' VP count (i.e. I have x VPs, opponent has y), each pair (x,y) gets a unique index. In other words, we only modify the corresponding index if we have the exact VP pair, otherwise it is 0. This results in a 9-dimensional feature for each. 
@@ -91,3 +110,7 @@ Watch the agent in action:
 Some issues I faced were hyperparameter tuning for what n and m should be, what gamma should be, and what the rewards should look like. I tried an n and m of 2 and 10, 3 and 50, 4 and 15, but ultimately 5 and 30 tended to perform the best. I also struggled with what epsilon decay should be. I had to move it up to 0.999 from 0.99 and 0.996 because the model would set on a pretty bad strategy and hover around 54% performance. For gamma and rewards, I initially had it as 0.95 and had rewards for building settlements, roads, and cities. But because of this it would just build roads and take the immediate reward. This led to it hovering around 57-58% for performance.
 
 It was interesting to play around with DQN
+
+
+## DQN vs. Q-Learning
+We also played the DQN against the Q-learning agent, and the DQN agent won 79.3% of the time (over 1,000 games). This was an interested result, as this implies DQN does better against Q-learning than it does against the naive greedy agent. We hypothesize this could be that some part of Q-learning's strategy does better against HeuristicAIPlayer but is exploitable. 
