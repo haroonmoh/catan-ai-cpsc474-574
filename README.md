@@ -7,7 +7,7 @@ We pull from an [existing Catan-AI implementation](https://github.com/kvombatker
 ## Summary (in eval)
 This project implements AI agents for Settlers of Catan using Reinforcement Learning techniques. We compare a HeuristicAIPlayer (Greedy) vs. Q-Learning vs. DQN    
 
-Installation: pip install requirements.txt
+Installation: ```pip install requirements.txt```
 
 Methods: 
 - HeuristicAIPlayer: greedy algorithm which always builds settlements, cities, and roads when it can, randomly
