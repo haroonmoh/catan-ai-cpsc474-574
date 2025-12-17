@@ -9,7 +9,7 @@ import queue
 import numpy as np
 import sys, pygame
 import matplotlib.pyplot as plt
-from QlearningPlayer import QLearningPlayer, QLearningRoadAgent
+from QLearningPlayer import QLearningPlayer, QLearningRoadAgent
  
 import csv
 

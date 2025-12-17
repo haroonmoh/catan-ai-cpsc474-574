@@ -15,7 +15,7 @@ from board import catanBoard, Axial_Point, Resource
 from catanGame import catanGame
 from player import player
 from heuristicAIPlayer import heuristicAIPlayer
-from QlearningPlayer import QLearningPlayer, QLearningRoadAgent
+from QLearningPlayer import QLearningPlayer, QLearningRoadAgent
 from hexLib import *
 
 # -----------------------------------------------------------------------------
@@ -126,7 +126,7 @@ class CatanEnv(gym.Env):
     def __init__(self, opponent_type="Heuristic_AI"):
         self.opponent_type = opponent_type
         self.num_players = 2
-        self.seed_val = 42
+        self.seed_val = 100
         self.players = []
         # Safety: end episode after N env.step() calls even if agent never ends its turn
         self.max_steps_per_episode = 500
