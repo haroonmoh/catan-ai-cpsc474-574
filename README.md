@@ -35,8 +35,8 @@ The Q-Learning agent uses Q-learning with a linear approximator to choose where 
 
 ### Run
 To train:      
-```python code/AIGame.py -n 2000  ```
-To test:
+```python code/AIGame.py -n 2000  ```         
+To test:         
 ```python code/AIGame.py -n 10000 --eval --weights weights/QLearner.npy ```
 
 
