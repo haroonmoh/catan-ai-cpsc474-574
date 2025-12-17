@@ -54,8 +54,8 @@ class DQNAgent:
 # -----------------------------------------------------------------------------
 # 2. BENCHMARK LOGIC
 # -----------------------------------------------------------------------------
-def run_benchmark(episodes=1000, weights_path=None):
-    env = CatanEnv()
+def run_benchmark(episodes=1000, weights_path=None, opponent_type="Heuristic_AI"):
+    env = CatanEnv(opponent_type=opponent_type)
     state_size = env.observation_space.shape[0]
     action_size = env.action_space.n
     agent = DQNAgent(state_size, action_size)
@@ -118,7 +118,7 @@ def run_benchmark(episodes=1000, weights_path=None):
     plt.plot(running_win_rates, label='Cumulative Win Rate')
     plt.axhline(y=wins/episodes, color='r', linestyle='--', label=f'Final Rate ({wins/episodes*100:.1f}%)')
     plt.ylim(0, 1.0)
-    plt.title(f'Agent Win Rate vs Heuristic AI ({episodes} Games)')
+    plt.title(f'Agent Win Rate vs QLearning ({episodes} Games)')
     plt.xlabel('Games Played')
     plt.ylabel('Win Rate')
     plt.legend()
@@ -130,9 +130,11 @@ def run_benchmark(episodes=1000, weights_path=None):
 
 if __name__ == "__main__":
     # Use absolute path if possible, or fallback to relative
-    w_path = "/Users/haroonmohamedali/cpsc474/catan/Catan-AI/weights/catan-dqn-6360.weights.h5"
+    w_path = "/Users/howarddai/CPSC5740 Final Project/catan-ai-cpsc474-574/weights/catan-dqn-6360.weights.h5"
     if not os.path.exists(w_path):
-        w_path = "weights/catan-dqn-6360.weights.h5"
+        w_path = "weights/catan-dqn-6360.weights.h5" # TODO: change this to be flat
+    
+    
         
-    run_benchmark(episodes=1000, weights_path=w_path)
+    run_benchmark(episodes=1000, weights_path=w_path, opponent_type="QLearner")
 
