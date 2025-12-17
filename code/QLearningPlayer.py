@@ -79,8 +79,8 @@ class QLearningRoadAgent():
         self.weights = self.features.get_init_weights()
         # self.weights = np.ones(self.num_features)
         
-        self.epsilon = 0.05
-        self.alpha = 0.05
+        self.epsilon = 0.01
+        self.alpha = 0.001
         
         # Whenever max value for next state, action is computed (i.e. vhat or qhat(s',a')), update weights corresponding to action before
         self.prev_feature_values = np.zeros(self.num_features)
